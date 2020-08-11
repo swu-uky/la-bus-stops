@@ -61,9 +61,10 @@
 
     <div id="map"></div>
     <div id="ui">
-        <h3>Los Angeles County</h3>
-        <h4>(Number of Bus Stops)</h4>
-        <ul id="legend-list"></ul>
+        <h2>Los Angeles County Bus Stops</h2>
+        <h4>(Provided by Metropolitan Transportation Authority)</h4>
+        <h6>LA County shapefile via <a href="https://hub.arcgis.com/datasets/lacounty::la-county-city-boundaries/" target="_blank">ArcGIS Hub</a></h6>
+        <h6>Bus Stops data via <a href="https://developer.metro.net/docs/gis-data/overview/" target="_blank">Metro Developer</a></h6>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
@@ -88,10 +89,11 @@
 
         // use D3 fetch to request data with async requests
         const citiesData = d3.json('data/la-cities.json');
+        const colorsData = d3.json('data/vividcolors.json');
         const stopsData = d3.json('data/bus-stops.json');
 
         // use Promise to wait until data is all loaded
-        Promise.all([citiesData, stopsData]).then(drawMap);
+        Promise.all([citiesData, colorsData, stopsData]).then(drawMap);
 
 
         function drawMap(data) {
@@ -102,16 +104,23 @@
 
             // pull out separate data arrays and assign to variables
             const cities = data[0];
-            const stops = data[1];
+            const colors = data[1];
+            const stops = data[2];
 
             // create a layerGroup with the geojson data
             const districtsLayerGroup = L.geoJson(cities, {
+                style: function (feature) {
+                    return {
+                        color: colors.Vivid[88][feature.properties.CITY_NO - 1],
+                        fillOpacity: .2
+                    }
+                },
                 onEachFeature(feature, layer) {
-                    //when mousing over a polygon layer
+                    // when mousing over a polygon layer
                     layer.on('mouseover', function () {
                         // provide a visual affordance
                         this.setStyle({
-                            fillOpacity: .8
+                            fillOpacity: .5
                         });
                     })
                     layer.on('mouseout', function () {
@@ -119,6 +128,7 @@
                             fillOpacity: .2
                         });
                     })
+                    // create tooltip to label the cities
                     const props = layer.feature.properties;
                     var tooltip = `<b>${props["CITY_NAME"]}</b><br>`;
                     layer.bindTooltip(tooltip, {
