@@ -5,8 +5,11 @@
 <head>
     <meta charset="utf-8">
 
-    <title>LA Bus Stops</title>
+    <title>LA County Bus Stops</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css" />
+    <link rel="stylesheet" href="libs/Leaflet.markercluster/MarkerCluster.Default.css"> />
+    <link rel="stylesheet" href="libs/Leaflet.markercluster/MarkerCluster.css"> />
+
     <style>
         body {
             font-family: sans-serif;
@@ -20,21 +23,59 @@
             top: 0;
             bottom: 0;
         }
+
+        #ui {
+            position: absolute;
+            z-index: 1000;
+            /* place above map */
+            bottom: 18px;
+            right: 18px;
+            padding: 6px 12px;
+            background: rgba(256, 256, 256, .9);
+        }
+
+        #ui ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #ui li {
+            margin-bottom: 6px;
+        }
+
+        #ui a {
+            text-decoration: none;
+        }
+
+        #ui a:hover {
+            font-weight: bold;
+        }
+
+        .highlight {
+            font-weight: bold;
+        }
     </style>
 </head>
 
 <body>
 
     <div id="map"></div>
+    <div id="ui">
+        <h3>Los Angeles County</h3>
+        <h4>(Number of Bus Stops)</h4>
+        <ul id="legend-list"></ul>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
     <script src="https://d3js.org/d3-fetch.v1.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="libs/Leaflet.markercluster/leaflet.markercluster.js"></script>
 
     <script>
         // map options
         const options = {
-            center: [37.265, -94.04],
-            zoom: 4
+            center: [34.0522, -118.2437],
+            zoom: 10
         }
         // instantiate Leaflet map
         const map = L.map('map', options);
@@ -45,9 +86,66 @@
             attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy;<a href="https://carto.com/attribution">CARTO</a>'
         }).addTo(map);
 
-        d3.json('data/us-counties.json').then((data) => {
-            L.geoJson(data).addTo(map)
-        });
+        // use D3 fetch to request data with async requests
+        const citiesData = d3.json('data/la-cities.json');
+        const stopsData = d3.json('data/bus-stops.json');
+
+        // use Promise to wait until data is all loaded
+        Promise.all([citiesData, stopsData]).then(drawMap);
+
+
+        function drawMap(data) {
+            // function is called when Promise is fulfilled and data is ready
+
+            // inspect array of data
+            console.log(data);
+
+            // pull out separate data arrays and assign to variables
+            const cities = data[0];
+            const stops = data[1];
+
+            // create a layerGroup with the geojson data
+            const districtsLayerGroup = L.geoJson(cities, {
+                onEachFeature(feature, layer) {
+                    //when mousing over a polygon layer
+                    layer.on('mouseover', function () {
+                        // provide a visual affordance
+                        this.setStyle({
+                            fillOpacity: .8
+                        });
+                    })
+                    layer.on('mouseout', function () {
+                        this.setStyle({
+                            fillOpacity: .2
+                        });
+                    })
+                    const props = layer.feature.properties;
+                    var tooltip = `<b>${props["CITY_NAME"]}</b><br>`;
+                    layer.bindTooltip(tooltip, {
+                        sticky: true
+                    });
+                }
+            }).addTo(map);
+
+            // create new markerClusterGroup
+            const markers = L.markerClusterGroup();
+
+            // loop through all our signals features
+            stops.features.forEach(function (feature) {
+                // create a new Leaflet marker for each
+                let coords = feature.geometry.coordinates;
+                let marker = L.marker([coords[1], coords[0]]);
+
+                // bind a tooltip to the marker
+                marker.bindTooltip("Bus Stop: " + feature.properties.STOPNAME);
+
+                // add the marker to the markerClusterGroup
+                markers.addLayer(marker);
+
+            });
+            // add the markerClusterGroup to the map
+            map.addLayer(markers);
+        }
     </script>
 </body>
 
